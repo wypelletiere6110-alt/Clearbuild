@@ -33,18 +33,24 @@
     <script type="module">
         import { GoogleGenAI } from '@google/genai';
 
-        // Paste your key inside the quotes below
-        const API_KEY = "AQ.Ab8RN6JkjDGBlG1JX5vEf9wJNL7jO1lR28FzNfoBnN9EssndxQ";
-        const ai = new GoogleGenAI({ apiKey: API_KEY });
+        // Make sure your key is pasted between the quotation marks below!
+        const API_KEY = "AQ.Ab8RN6JkjDGBlG1JX5vEf9wJNL7jO1lR28FzNfoBnN9EssndxQ"; 
 
         window.generateText = async function() {
             const prompt = document.getElementById('userInput').value;
             const outputDiv = document.getElementById('output');
             
             if (!prompt) return alert('Please enter a prompt!');
-            outputDiv.innerText = "Thinking...";
+            
+            // This forces the UI to change immediately so you know the button click worked
+            outputDiv.innerText = "Connecting to Gemini servers...";
 
             try {
+                if (API_KEY === "AQ.Ab8RN6JkjDGBlG1JX5vEf9wJNL7jO1lR28FzNfoBnN9EssndxQ" || API_KEY.length < 10) {
+                    throw new Error("Your API key is missing or formatted incorrectly in the HTML code.");
+                }
+
+                const ai = new GoogleGenAI({ apiKey: API_KEY });
                 const response = await ai.models.generateContent({
                     model: 'gemini-2.5-flash',
                     contents: prompt,
@@ -52,6 +58,8 @@
 
                 outputDiv.innerText = response.text;
             } catch (error) {
+                // This triggers a popup window explaining the exact problem
+                alert("Gemini Connection Error: " + error.message);
                 outputDiv.innerText = "Error: " + error.message;
                 console.error(error);
             }
