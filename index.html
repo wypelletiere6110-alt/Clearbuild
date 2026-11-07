@@ -53,21 +53,22 @@
                     })
                 });
 
-                const data = await response.json();
-
-                if (data.error) {
-                    throw new Error(data.error.message);
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.error?.message || `HTTP error! status: ${response.status}`);
                 }
 
-                // Fixed data reading path for Google's API response structure
-                if (data.candidates && data.candidates[0].content.parts[0].text) {
+                const data = await response.json();
+
+                // Corrected data extraction properties matching Google's actual response structure
+                if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
                     outputDiv.innerText = data.candidates[0].content.parts[0].text;
                 } else {
-                    outputDiv.innerText = "Received unexpected data format from Google.";
+                    outputDiv.innerText = "Received data, but it was empty or formatted unexpectedly.";
                 }
 
             } catch (error) {
-                alert("Handshake Blocked: " + error.message + "\n\nTry turning off your Ad-Blocker/Tracking Protection for this site.");
+                alert("Connection Error: " + error.message);
                 outputDiv.innerText = "Error details: " + error.message;
                 console.error(error);
             }
