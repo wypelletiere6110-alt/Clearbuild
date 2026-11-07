@@ -32,7 +32,6 @@
     <div id="output">AI responses will appear here...</div>
 
     <script>
-        // Universal direct web execution format
         document.getElementById('submitBtn').addEventListener('click', async function() {
             const userKey = document.getElementById('apiKeyInput').value.trim();
             const prompt = document.getElementById('userInput').value;
@@ -44,7 +43,6 @@
             outputDiv.innerText = "Connecting directly to Google AI endpoints...";
 
             try {
-                // Uses a direct network handshake to guarantee execution across all incognito and standard browsers
                 const url = `https://googleapis.com{userKey}`;
                 
                 const response = await fetch(url, {
@@ -61,14 +59,15 @@
                     throw new Error(data.error.message);
                 }
 
+                // Fixed data reading path for Google's API response structure
                 if (data.candidates && data.candidates[0].content.parts[0].text) {
                     outputDiv.innerText = data.candidates[0].content.parts[0].text;
                 } else {
-                    outputDiv.innerText = "Received empty response from server.";
+                    outputDiv.innerText = "Received unexpected data format from Google.";
                 }
 
             } catch (error) {
-                alert("Handshake Blocked: " + error.message);
+                alert("Handshake Blocked: " + error.message + "\n\nTry turning off your Ad-Blocker/Tracking Protection for this site.");
                 outputDiv.innerText = "Error details: " + error.message;
                 console.error(error);
             }
