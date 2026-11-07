@@ -6,8 +6,11 @@
     <title>ClearBuild AI Generator</title>
     <style>
         body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background-color: #f9f9f9; }
-        textarea { width: 100%; height: 100px; margin-bottom: 10px; padding: 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
-        button { padding: 10px 20px; cursor: pointer; background-color: #0b57d0; color: white; border: none; border-radius: 20px; font-weight: bold; }
+        label { font-weight: bold; display: block; margin-top: 15px; margin-bottom: 5px; color: #333; }
+        input[type="password"], textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
+        input[type="password"] { margin-bottom: 15px; }
+        textarea { height: 100px; margin-bottom: 15px; }
+        button { padding: 12px 24px; cursor: pointer; background-color: #0b57d0; color: white; border: none; border-radius: 20px; font-weight: bold; width: 100%; font-size: 16px; }
         button:hover { background-color: #0842a0; }
         #output { margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #eee; border-radius: 8px; white-space: pre-wrap; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
     </style>
@@ -15,8 +18,15 @@
 <body>
 
     <h2>ClearBuild AI Code Generator</h2>
-    <p>Type a prompt below to generate code using Gemini 2.5 Flash.</p>
-    <textarea id="userInput" placeholder="e.g., Build a beautiful contact form with CSS..."></textarea>
+    <p>Talk directly to Gemini 2.5 Flash from your own static website setup.</p>
+
+    <!-- This input box keeps your key safe from GitHub's public scrapers -->
+    <label for="apiKeyInput">1. Enter Gemini API Key:</label>
+    <input type="password" id="apiKeyInput" placeholder="Paste your AIzaSy... key here Safely">
+
+    <label for="userInput">2. Enter your Prompt:</label>
+    <textarea id="userInput" placeholder="e.g., Build a login page with blue modern buttons..."></textarea>
+    
     <button onclick="generateText()">Submit to Gemini</button>
 
     <h3>Response:</h3>
@@ -25,7 +35,7 @@
     <script type="importmap">
       {
         "imports": {
-          "@google/genai": "https://esm.run"
+          "@google/genai": "https://esm.run/@google/genai"
         }
       }
     </script>
@@ -33,24 +43,20 @@
     <script type="module">
         import { GoogleGenAI } from '@google/genai';
 
-        // Make sure your key is pasted between the quotation marks below!
-        const API_KEY = "AQ.Ab8RN6JkjDGBlG1JX5vEf9wJNL7jO1lR28FzNfoBnN9EssndxQ"; 
-
         window.generateText = async function() {
+            const userKey = document.getElementById('apiKeyInput').value.trim();
             const prompt = document.getElementById('userInput').value;
             const outputDiv = document.getElementById('output');
             
-            if (!prompt) return alert('Please enter a prompt!');
+            if (!userKey) return alert('Please enter your Gemini API Key first!');
+            if (!prompt) return alert('Please enter a prompt message!');
             
-            // This forces the UI to change immediately so you know the button click worked
-            outputDiv.innerText = "Connecting to Gemini servers...";
+            outputDiv.innerText = "Attempting connection to Gemini endpoints...";
 
             try {
-                if (API_KEY === "AQ.Ab8RN6JkjDGBlG1JX5vEf9wJNL7jO1lR28FzNfoBnN9EssndxQ" || API_KEY.length < 10) {
-                    throw new Error("Your API key is missing or formatted incorrectly in the HTML code.");
-                }
-
-                const ai = new GoogleGenAI({ apiKey: API_KEY });
+                // Initialize the SDK directly with the text typed into the box
+                const ai = new GoogleGenAI({ apiKey: userKey });
+                
                 const response = await ai.models.generateContent({
                     model: 'gemini-2.5-flash',
                     contents: prompt,
@@ -58,9 +64,8 @@
 
                 outputDiv.innerText = response.text;
             } catch (error) {
-                // This triggers a popup window explaining the exact problem
-                alert("Gemini Connection Error: " + error.message);
-                outputDiv.innerText = "Error: " + error.message;
+                alert("Network Rejection: " + error.message);
+                outputDiv.innerText = "Error details: " + error.message;
                 console.error(error);
             }
         }
