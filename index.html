@@ -12,37 +12,28 @@
         textarea { height: 100px; margin-bottom: 15px; }
         button { padding: 12px 24px; cursor: pointer; background-color: #0b57d0; color: white; border: none; border-radius: 20px; font-weight: bold; width: 100%; font-size: 16px; }
         button:hover { background-color: #0842a0; }
-        #output { margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #eee; border-radius: 8px; white-space: pre-wrap; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        #output { margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #eee; border-radius: 8px; white-space: pre-wrap; box-shadow: 0 2px 4px rgba(0,0,0,0.05); min-height: 40px; }
     </style>
 </head>
 <body>
 
     <h2>ClearBuild AI Code Generator</h2>
-    <p>Talk directly to Gemini 3.8 Flash from your own static website setup.</p>
+    <p>Talk directly to Gemini 3.8 Flash cleanly from any browser window.</p>
 
     <label for="apiKeyInput">1. Enter Gemini API Key:</label>
-    <input type="password" id="apiKeyInput" placeholder="Paste your AIzaSy... key here Safely">
+    <input type="password" id="apiKeyInput" placeholder="Paste your AIzaSy... key here safely">
 
     <label for="userInput">2. Enter your Prompt:</label>
     <textarea id="userInput" placeholder="e.g., Build a login page with blue modern buttons..."></textarea>
     
-    <button onclick="generateText()">Submit to Gemini</button>
+    <button id="submitBtn">Submit to Gemini</button>
 
     <h3>Response:</h3>
     <div id="output">AI responses will appear here...</div>
 
-    <script type="importmap">
-      {
-        "imports": {
-          "@google/genai": "https://esm.run"
-        }
-      }
-    </script>
-
-    <script type="module">
-        import { GoogleGenAI } from '@google/genai';
-
-        window.generateText = async function() {
+    <script>
+        // Universal direct web execution format
+        document.getElementById('submitBtn').addEventListener('click', async function() {
             const userKey = document.getElementById('apiKeyInput').value.trim();
             const prompt = document.getElementById('userInput').value;
             const outputDiv = document.getElementById('output');
@@ -50,25 +41,38 @@
             if (!userKey) return alert('Please enter your Gemini API Key first!');
             if (!prompt) return alert('Please enter a prompt message!');
             
-            outputDiv.innerText = "Attempting connection to Gemini endpoints...";
+            outputDiv.innerText = "Connecting directly to Google AI endpoints...";
 
             try {
-                const ai = new GoogleGenAI({ apiKey: userKey });
+                // Uses a direct network handshake to guarantee execution across all incognito and standard browsers
+                const url = `https://googleapis.com{userKey}`;
                 
-                // Swapped to the updated model requested by the server
-                const response = await ai.models.generateContent({
-                    model: 'gemini-3.8-flash',
-                    contents: prompt,
+                const response = await fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        contents: [{ parts: [{ text: prompt }] }]
+                    })
                 });
 
-                outputDiv.innerText = response.text;
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error.message);
+                }
+
+                if (data.candidates && data.candidates[0].content.parts[0].text) {
+                    outputDiv.innerText = data.candidates[0].content.parts[0].text;
+                } else {
+                    outputDiv.innerText = "Received empty response from server.";
+                }
+
             } catch (error) {
-                alert("Network Rejection: " + error.message);
+                alert("Handshake Blocked: " + error.message);
                 outputDiv.innerText = "Error details: " + error.message;
                 console.error(error);
             }
-        }
+        });
     </script>
 </body>
 </html>
-
