@@ -18,7 +18,7 @@
 <body>
 
     <h2>ClearBuild AI Code Generator</h2>
-    <p>Talk directly to Gemini 3.8 Flash cleanly from any browser window.</p>
+    <p>Talk directly to Gemini 3.8 Flash cleanly via verified secure routing headers.</p>
 
     <label for="apiKeyInput">1. Enter Gemini API Key:</label>
     <input type="password" id="apiKeyInput" placeholder="Paste your AIzaSy... key here safely">
@@ -40,14 +40,19 @@
             if (!userKey) return alert('Please enter your Gemini API Key first!');
             if (!prompt) return alert('Please enter a prompt message!');
             
-            outputDiv.innerText = "Connecting directly to Google AI endpoints...";
+            outputDiv.innerText = "Connecting securely to Google AI endpoints...";
 
             try {
-                const url = `https://googleapis.com{userKey}`;
+                // Key is removed from URL to bypass browser parameter filters
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent`;
                 
                 const response = await fetch(url, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        // Secure authorization header required for cross-origin browser validation
+                        'x-goog-api-key': userKey 
+                    },
                     body: JSON.stringify({
                         contents: [{ parts: [{ text: prompt }] }]
                     })
@@ -55,21 +60,20 @@
 
                 if (!response.ok) {
                     const errData = await response.json();
-                    throw new Error(errData.error?.message || `HTTP error! status: ${response.status}`);
+                    throw new Error(errData.error?.message || `HTTP status ${response.status}`);
                 }
 
                 const data = await response.json();
 
-                // Corrected data extraction properties matching Google's actual response structure
                 if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
                     outputDiv.innerText = data.candidates[0].content.parts[0].text;
                 } else {
-                    outputDiv.innerText = "Received data, but it was empty or formatted unexpectedly.";
+                    outputDiv.innerText = "Received layout data, but it was empty or formatted unexpectedly.";
                 }
 
             } catch (error) {
-                alert("Connection Error: " + error.message);
-                outputDiv.innerText = "Error details: " + error.message;
+                alert("Connection Blocked: " + error.message);
+                outputDiv.innerText = "Connection Failed: " + error.message;
                 console.error(error);
             }
         });
