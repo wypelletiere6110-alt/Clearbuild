@@ -18,9 +18,8 @@
 <body>
 
     <h2>ClearBuild AI Code Generator</h2>
-    <p>Talk directly to Gemini 2.5 Flash from your own static website setup.</p>
+    <p>Talk directly to Gemini 3.8 Flash from your own static website setup.</p>
 
-    <!-- This input box keeps your key safe from GitHub's public scrapers -->
     <label for="apiKeyInput">1. Enter Gemini API Key:</label>
     <input type="password" id="apiKeyInput" placeholder="Paste your AIzaSy... key here Safely">
 
@@ -35,7 +34,7 @@
     <script type="importmap">
       {
         "imports": {
-          "@google/genai": "https://esm.run/@google/genai"
+          "@google/genai": "https://esm.run"
         }
       }
     </script>
@@ -54,11 +53,11 @@
             outputDiv.innerText = "Attempting connection to Gemini endpoints...";
 
             try {
-                // Initialize the SDK directly with the text typed into the box
                 const ai = new GoogleGenAI({ apiKey: userKey });
                 
+                // Swapped to the updated model requested by the server
                 const response = await ai.models.generateContent({
-                    model: 'gemini-2.5-flash',
+                    model: 'gemini-3.8-flash',
                     contents: prompt,
                 });
 
@@ -72,3 +71,4 @@
     </script>
 </body>
 </html>
+
