@@ -301,7 +301,7 @@
         <span class="text-emerald-400 text-xs font-semibold uppercase tracking-wider">Functional AI Workspace</span>
         <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-1 mb-3">Live Interactive HTML Builder</h2>
         <p class="text-slate-400 text-sm">
-          Select your provider (Gemini, OpenRouter, or OpenAI), paste your key, or use built-in simulation mode.
+          Select your provider (Gemini 3.5 Flash, OpenRouter, or OpenAI), paste your key, or use built-in simulation mode.
         </p>
       </div>
 
@@ -313,13 +313,13 @@
               <span>⚡ AI Backend Connection</span>
               <span id="apiStatusBadge" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs">Simulated Backend Active</span>
             </h4>
-            <p class="text-xs text-slate-400 mt-1">Native support for Google Gemini (<code>AIzaSy...</code>), OpenRouter (<code>sk-or-...</code>), and OpenAI (<code>sk-...</code>).</p>
+            <p class="text-xs text-slate-400 mt-1">Native support for Google Gemini 3.5 Flash (<code>AIzaSy...</code>), OpenRouter (<code>sk-or-...</code>), and OpenAI (<code>sk-...</code>).</p>
           </div>
           <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
             <select id="apiProvider" onchange="onProviderChange()" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
-              <option value="gemini">Google Gemini</option>
-              <option value="openrouter">OpenRouter</option>
-              <option value="openai">OpenAI</option>
+              <option value="gemini">Google Gemini (3.5 Flash)</option>
+              <option value="openrouter">OpenRouter (Gemini 3.5)</option>
+              <option value="openai">OpenAI (GPT-4o Mini)</option>
             </select>
             <input id="apiKeyInput" type="password" placeholder="AIzaSy... or sk-..." class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 flex-1 min-w-[200px]">
             <button onclick="saveApiKey()" class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold transition-all">Save Key</button>
@@ -562,7 +562,7 @@
           <div>
             <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Starter (BYOK)</div>
             <div class="text-3xl font-black text-white my-3">$0 <span class="text-xs font-normal text-slate-400">/ forever</span></div>
-            <p class="text-xs text-slate-400 mb-6">Full browser workspace powered by your own Gemini, OpenRouter, or OpenAI key.</p>
+            <p class="text-xs text-slate-400 mb-6">Full browser workspace powered by your own Gemini 3.5 Flash, OpenRouter, or OpenAI key.</p>
             <ul class="space-y-2.5 text-xs text-slate-300 mb-6">
               <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Unlimited BYOK & Simulation generations</li>
               <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Before-and-After Diff Inspector</li>
@@ -890,7 +890,7 @@
         try {
           let generated = "";
           if (apiProvider === "gemini" || apiKey.startsWith("AIzaSy")) {
-            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${apiKey}`, {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -906,7 +906,7 @@
             const endpoint = apiProvider === "openrouter" 
               ? "https://openrouter.ai/api/v1/chat/completions" 
               : "https://api.openai.com/v1/chat/completions";
-            const model = apiProvider === "openrouter" ? "google/gemini-2.5-flash" : "gpt-4o-mini";
+            const model = apiProvider === "openrouter" ? "google/gemini-3.5-flash" : "gpt-4o-mini";
             
             const res = await fetch(endpoint, {
               method: "POST",
