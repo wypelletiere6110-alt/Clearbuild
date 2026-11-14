@@ -1,86 +1,1175 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark scroll-smooth">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ClearBuild AI Generator</title>
-    <style>
-        body { font-family: system-ui, sans-serif; max-width: 600px; margin: 40px auto; padding: 20px; background-color: #f9f9f9; }
-        label { font-weight: bold; display: block; margin-top: 15px; margin-bottom: 5px; color: #333; }
-        input[type="password"], textarea { width: 100%; padding: 10px; border-radius: 8px; border: 1px solid #ccc; box-sizing: border-box; }
-        input[type="password"] { margin-bottom: 15px; }
-        textarea { height: 100px; margin-bottom: 15px; }
-        button { padding: 12px 24px; cursor: pointer; background-color: #0b57d0; color: white; border: none; border-radius: 20px; font-weight: bold; width: 100%; font-size: 16px; }
-        button:hover { background-color: #0842a0; }
-        button:disabled { background-color: #93b5e8; cursor: not-allowed; }
-        #output { margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #eee; border-radius: 8px; white-space: pre-wrap; box-shadow: 0 2px 4px rgba(0,0,0,0.05); min-height: 40px; }
-    </style>
-</head>
-<body>
-
-    <h2>ClearBuild AI Code Generator</h2>
-    <p>Talk directly to Gemini 3.5 Flash via the Gemini REST API.</p>
-
-    <label for="apiKeyInput">1. Enter Gemini API Key:</label>
-    <input type="password" id="apiKeyInput" placeholder="Paste your AIzaSy... key here">
-
-    <label for="userInput">2. Enter your Prompt:</label>
-    <textarea id="userInput" placeholder="e.g., Build a login page with blue modern buttons..."></textarea>
-    
-    <button id="submitBtn">Submit to Gemini</button>
-
-    <h3>Response:</h3>
-    <div id="output">AI responses will appear here...</div>
-
-    <script>
-        document.getElementById('submitBtn').addEventListener('click', async function() {
-            const submitBtn = this;
-            const userKey = document.getElementById('apiKeyInput').value.trim();
-            const prompt = document.getElementById('userInput').value.trim();
-            const outputDiv = document.getElementById('output');
-            
-            if (!userKey) return alert('Please enter your Gemini API Key first!');
-            if (!prompt) return alert('Please enter a prompt message!');
-            
-            submitBtn.disabled = true;
-            outputDiv.innerText = "Generating response...";
-
-            try {
-                // Updated to the valid gemini-3.5-flash endpoint
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent`;
-                
-                const response = await fetch(url, {
-                    method: 'POST',
-                    headers: { 
-                        'Content-Type': 'application/json',
-                        'x-goog-api-key': userKey 
-                    },
-                    body: JSON.stringify({
-                        contents: [{ parts: [{ text: prompt }] }]
-                    })
-                });
-
-                if (!response.ok) {
-                    const errData = await response.json();
-                    throw new Error(errData.error?.message || `HTTP status ${response.status}`);
-                }
-
-                const data = await response.json();
-                const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
-
-                if (reply) {
-                    outputDiv.innerText = reply;
-                } else {
-                    outputDiv.innerText = "Received a response, but no text was returned (it may have been blocked by safety filters).";
-                }
-
-            } catch (error) {
-                outputDiv.innerText = "Error: " + error.message;
-                console.error(error);
-            } finally {
-                submitBtn.disabled = false;
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ClearBuild - Human-First AI Development Workspace</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/diff/5.1.0/diff.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/axe-core/4.7.2/axe.min.js"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#ecfdf5',
+              500: '#10b981',
+              600: '#059669',
+              accent: '#06b6d4',
+              dark: '#0a0d14',
+              card: '#0f172a',
+              border: '#1e293b'
             }
+          }
+        }
+      }
+    }
+  </script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&family=Fira+Code:wght@400;500;600&display=swap');
+    body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #0a0d14; color: #f8fafc; }
+    code, pre, textarea, .font-mono { font-family: 'Fira Code', monospace; }
+    .glass-panel { background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); border: 1px solid rgba(255, 255, 255, 0.08); }
+    .glow-emerald { box-shadow: 0 0 25px -5px rgba(16, 185, 129, 0.3); }
+    .reveal { opacity: 0; transform: translateY(20px); transition: opacity 0.6s ease, transform 0.6s ease; }
+    .reveal.active { opacity: 1; transform: translateY(0); }
+
+    @media (prefers-reduced-motion: reduce) {
+      .reveal { opacity: 1 !important; transform: none !important; transition: none !important; }
+      #scroll-progress { transition: none !important; }
+      * { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+    }
+
+    .diff-add { background-color: rgba(16, 185, 129, 0.15); color: #34d399; }
+    .diff-rem { background-color: rgba(244, 63, 94, 0.15); color: #fb7185; }
+  </style>
+</head>
+<body class="bg-[#0a0d14] text-slate-100 antialiased selection:bg-emerald-500 selection:text-black">
+
+  <!-- Toast Notification Container -->
+  <div id="toastContainer" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+  <!-- Floating Reading Progress Bar -->
+  <div class="fixed top-0 left-0 w-full h-1 z-50 bg-slate-900">
+    <div id="scroll-progress" class="h-full bg-gradient-to-r from-emerald-500 via-cyan-400 to-blue-500 w-0 transition-all duration-150"></div>
+  </div>
+
+  <!-- Header & Navigation -->
+  <header class="sticky top-0 z-40 glass-panel border-b border-slate-800/80">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      <div class="flex items-center space-x-3">
+        <a href="#" class="flex items-center space-x-3">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center font-bold text-slate-950 text-xl shadow-lg shadow-emerald-500/20">
+            CB
+          </div>
+          <span class="text-xl font-extrabold tracking-tight text-white">ClearBuild</span>
+        </a>
+      </div>
+
+      <!-- Desktop Nav -->
+      <nav class="hidden md:flex items-center space-x-6 text-sm font-medium text-slate-300">
+        <a href="#problem" id="nav-problem" class="nav-link hover:text-emerald-400 transition-colors">The Problem</a>
+        <a href="#why-clearbuild" id="nav-why-clearbuild" class="nav-link hover:text-emerald-400 transition-colors">Why ClearBuild</a>
+        <a href="#how-it-works" id="nav-how-it-works" class="nav-link hover:text-emerald-400 transition-colors">5 Stages</a>
+        <a href="#try-demo" id="nav-try-demo" class="nav-link hover:text-emerald-400 transition-colors">Workspace</a>
+        <a href="#tools" id="nav-tools" class="nav-link hover:text-emerald-400 transition-colors">Audit & Debug</a>
+        <a href="#dashboard" id="nav-dashboard" class="nav-link hover:text-emerald-400 transition-colors">Learning Hub</a>
+        <a href="#pricing" id="nav-pricing" class="nav-link hover:text-emerald-400 transition-colors">Pricing</a>
+      </nav>
+
+      <div class="flex items-center space-x-3">
+        <a href="#try-demo" class="hidden sm:inline-flex px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-sm transition-all shadow-md shadow-emerald-500/20">
+          Open Workspace
+        </a>
+        <button id="mobileMenuBtn" onclick="toggleMobileMenu()" aria-label="Toggle Navigation Menu" class="md:hidden p-2 rounded-lg bg-slate-800 text-slate-300 hover:text-white">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Mobile Dropdown Navigation -->
+    <div id="mobileMenu" class="hidden md:hidden bg-slate-950/95 border-b border-slate-800 px-4 pt-3 pb-6 space-y-3 text-base font-medium">
+      <a href="#problem" onclick="toggleMobileMenu()" class="block text-slate-300 hover:text-emerald-400">The Problem</a>
+      <a href="#why-clearbuild" onclick="toggleMobileMenu()" class="block text-slate-300 hover:text-emerald-400">Why ClearBuild</a>
+      <a href="#how-it-works" onclick="toggleMobileMenu()" class="block text-slate-300 hover:text-emerald-400">5 Stages</a>
+      <a href="#try-demo" onclick="toggleMobileMenu()" class="block text-slate-300 hover:text-emerald-400">Workspace</a>
+      <a href="#tools" onclick="toggleMobileMenu()" class="block text-slate-300 hover:text-emerald-400">Audit & Debug</a>
+      <a href="#dashboard" onclick="toggleMobileMenu()" class="block text-slate-300 hover:text-emerald-400">Learning Hub</a>
+      <a href="#pricing" onclick="toggleMobileMenu()" class="block text-slate-300 hover:text-emerald-400">Pricing</a>
+    </div>
+  </header>
+
+  <!-- Hero Section -->
+  <section class="relative py-16 sm:py-24 overflow-hidden border-b border-slate-800/60">
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-500/10 via-slate-950 to-slate-950 pointer-events-none"></div>
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 text-center max-w-3xl mx-auto reveal">
+      <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-xs font-semibold uppercase tracking-wider mb-4">
+        <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+        HTML & Responsive UI Builder Scope
+      </div>
+      <h1 class="text-3xl sm:text-5xl lg:text-6xl font-black tracking-tight text-white mb-6 leading-tight">
+        Build with AI. <br><span class="bg-clip-text text-transparent bg-gradient-to-r from-emerald-400 via-cyan-400 to-blue-400">Understand every single step.</span>
+      </h1>
+      <p class="text-base sm:text-lg text-slate-300 leading-relaxed mb-8">
+        ClearBuild is a human-first AI interface builder. Instead of dumping unexplained code, it streams plain-English explanations, audits accessibility in real-time, and lets you edit HTML directly with interactive versioning.
+      </p>
+      <div class="flex flex-col sm:flex-row items-center justify-center gap-4">
+        <a href="#try-demo" class="w-full sm:w-auto px-6 py-3.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-bold text-base shadow-lg shadow-emerald-500/25 transition-all">
+          Launch Live Workspace →
+        </a>
+        <a href="#why-clearbuild" class="w-full sm:w-auto px-6 py-3.5 rounded-xl glass-panel text-slate-300 hover:text-white font-semibold text-base transition-all">
+          How ClearBuild Differs
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- The Problem Section -->
+  <section id="problem" class="py-16 sm:py-20 border-b border-slate-800/60 bg-slate-950/30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-2xl mx-auto mb-12 reveal">
+        <span class="text-rose-400 text-xs font-semibold uppercase tracking-wider">The Black-Box Trap</span>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-1 mb-3">Why Traditional AI Code Generators Fail Builders</h2>
+        <p class="text-slate-400 text-sm">
+          "Vibe coding" tools generate hundreds of lines in seconds—leaving you stuck the moment a layout breaks or an audit fails.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 reveal">
+        <div class="glass-panel p-6 rounded-2xl border border-slate-800 hover:border-rose-500/40 transition-colors">
+          <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center text-lg font-bold mb-4">01</div>
+          <h3 class="text-base font-bold text-white mb-2">Unexplained Spaghetti</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            AI dumps walls of nested utility classes with zero architectural context, turning simple edits into guesswork.
+          </p>
+        </div>
+
+        <div class="glass-panel p-6 rounded-2xl border border-slate-800 hover:border-rose-500/40 transition-colors">
+          <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center text-lg font-bold mb-4">02</div>
+          <h3 class="text-base font-bold text-white mb-2">Destructive Overwrites</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Asking for a small button color tweak often rewrites your entire component structure without showing what changed.
+          </p>
+        </div>
+
+        <div class="glass-panel p-6 rounded-2xl border border-slate-800 hover:border-rose-500/40 transition-colors">
+          <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center text-lg font-bold mb-4">03</div>
+          <h3 class="text-base font-bold text-white mb-2">Broken Accessibility</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Generated markup routinely skips ARIA labels, keyboard focus rings, and WCAG contrast thresholds.
+          </p>
+        </div>
+
+        <div class="glass-panel p-6 rounded-2xl border border-slate-800 hover:border-rose-500/40 transition-colors">
+          <div class="w-10 h-10 rounded-xl bg-rose-500/10 text-rose-400 flex items-center justify-center text-lg font-bold mb-4">04</div>
+          <h3 class="text-base font-bold text-white mb-2">Silent Runtime Bugs</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Broken event handlers fail quietly inside preview iframes while you waste prompts trying to describe the symptom.
+          </p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Why ClearBuild Section -->
+  <section id="why-clearbuild" class="py-16 sm:py-20 border-b border-slate-800/60">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-2xl mx-auto mb-12 reveal">
+        <span class="text-emerald-400 text-xs font-semibold uppercase tracking-wider">Glass-Box Engineering</span>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-1 mb-3">Built for Clarity, Control & Ownership</h2>
+        <p class="text-slate-400 text-sm">
+          Every AI iteration is inspectable, reversible, and verified before you ship a single line.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-10 reveal">
+        <div class="glass-panel p-6 rounded-2xl border border-emerald-500/20 glow-emerald">
+          <div class="text-emerald-400 text-xs font-bold uppercase tracking-wider mb-2">Line-by-Line Clarity</div>
+          <h3 class="text-lg font-bold text-white mb-2">Plain-English Code Inspector</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Click any line in the HTML editor to translate tags, layout utilities, and accessibility attributes into clear human explanations.
+          </p>
+        </div>
+
+        <div class="glass-panel p-6 rounded-2xl border border-cyan-500/20">
+          <div class="text-cyan-400 text-xs font-bold uppercase tracking-wider mb-2">Zero Surprises</div>
+          <h3 class="text-lg font-bold text-white mb-2">Mandatory Diff Gatekeeping</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            AI edits never overwrite your canvas blindly. Review exact green/red line diffs and accept or reject every iteration.
+          </p>
+        </div>
+
+        <div class="glass-panel p-6 rounded-2xl border border-blue-500/20">
+          <div class="text-blue-400 text-xs font-bold uppercase tracking-wider mb-2">Production Standards</div>
+          <h3 class="text-lg font-bold text-white mb-2">Built-In Axe-Core & Error Bridge</h3>
+          <p class="text-xs text-slate-300 leading-relaxed">
+            Run automated WCAG accessibility audits on your live preview and catch sandboxed JavaScript exceptions with actionable fixes.
+          </p>
+        </div>
+      </div>
+
+      <!-- Comparison Table -->
+      <div class="glass-panel rounded-2xl border border-slate-800 overflow-hidden reveal">
+        <div class="overflow-x-auto">
+          <table class="w-full text-left text-xs">
+            <thead class="bg-slate-900/90 text-slate-300 uppercase tracking-wider border-b border-slate-800">
+              <tr>
+                <th class="py-3.5 px-5">Capability</th>
+                <th class="py-3.5 px-5 text-slate-400">Standard AI Generators</th>
+                <th class="py-3.5 px-5 text-emerald-400 font-bold">ClearBuild Workspace</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-800/70 text-slate-300">
+              <tr>
+                <td class="py-3 px-5 font-semibold text-white">Code Changes</td>
+                <td class="py-3 px-5 text-slate-400">Overwrites entire file silently</td>
+                <td class="py-3 px-5 text-emerald-300">Line-level Before/After Diff with Accept/Reject</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-5 font-semibold text-white">Code Comprehension</td>
+                <td class="py-3 px-5 text-slate-400">Raw markup with no context</td>
+                <td class="py-3 px-5 text-emerald-300">Interactive line inspector + plain-English breakdown</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-5 font-semibold text-white">Accessibility (WCAG)</td>
+                <td class="py-3 px-5 text-slate-400">Manual external testing required</td>
+                <td class="py-3 px-5 text-emerald-300">One-click live axe-core DOM audit inside sandbox</td>
+              </tr>
+              <tr>
+                <td class="py-3 px-5 font-semibold text-white">Model Lock-In</td>
+                <td class="py-3 px-5 text-slate-400">Proprietary credits & vendor lock-in</td>
+                <td class="py-3 px-5 text-emerald-300">BYOK (Gemini, OpenRouter, OpenAI) + Offline Simulator</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 Stages Section -->
+  <section id="how-it-works" class="py-16 sm:py-20 border-b border-slate-800/60 bg-slate-950/30">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-2xl mx-auto mb-12 reveal">
+        <span class="text-cyan-400 text-xs font-semibold uppercase tracking-wider">Transparent Workflow</span>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-1 mb-3">The 5 Stages of ClearBuild</h2>
+        <p class="text-slate-400 text-sm">
+          A deterministic loop designed so you stay in control from first prompt to clean HTML export.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 reveal">
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 relative">
+          <span class="inline-block px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono text-xs font-bold mb-3">Stage 01</span>
+          <h3 class="text-sm font-bold text-white mb-1.5">Intent & Prompt</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">Describe a UI component or pick a vetted semantic starter template.</p>
+        </div>
+
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 relative">
+          <span class="inline-block px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono text-xs font-bold mb-3">Stage 02</span>
+          <h3 class="text-sm font-bold text-white mb-1.5">Diff Inspection</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">Compare exact additions and removals before committing changes to state.</p>
+        </div>
+
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 relative">
+          <span class="inline-block px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono text-xs font-bold mb-3">Stage 03</span>
+          <h3 class="text-sm font-bold text-white mb-1.5">Line Explanation</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">Click any line in the editor to learn how layout, classes, and ARIA work.</p>
+        </div>
+
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 relative">
+          <span class="inline-block px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono text-xs font-bold mb-3">Stage 04</span>
+          <h3 class="text-sm font-bold text-white mb-1.5">Sandbox & Audit</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">Preview across viewports, run axe-core accessibility checks, and catch errors.</p>
+        </div>
+
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 relative">
+          <span class="inline-block px-2.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 font-mono text-xs font-bold mb-3">Stage 05</span>
+          <h3 class="text-sm font-bold text-white mb-1.5">Clean Export</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">Save locally, download standalone HTML, or generate a stateful share link.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Interactive Live Workspace -->
+  <section id="try-demo" class="py-16 sm:py-20 border-b border-slate-800/60">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-2xl mx-auto mb-10 reveal">
+        <span class="text-emerald-400 text-xs font-semibold uppercase tracking-wider">Functional AI Workspace</span>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-1 mb-3">Live Interactive HTML Builder</h2>
+        <p class="text-slate-400 text-sm">
+          Select your provider (Gemini, OpenRouter, or OpenAI), paste your key, or use built-in simulation mode.
+        </p>
+      </div>
+
+      <!-- API Configuration Panel -->
+      <div class="glass-panel rounded-2xl p-4 sm:p-6 mb-6 border border-slate-800 reveal">
+        <div class="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+          <div>
+            <h4 class="text-sm font-bold text-white flex items-center gap-2">
+              <span>⚡ AI Backend Connection</span>
+              <span id="apiStatusBadge" class="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs">Simulated Backend Active</span>
+            </h4>
+            <p class="text-xs text-slate-400 mt-1">Native support for Google Gemini (<code>AIzaSy...</code>), OpenRouter (<code>sk-or-...</code>), and OpenAI (<code>sk-...</code>).</p>
+          </div>
+          <div class="flex flex-wrap items-center gap-2 w-full lg:w-auto">
+            <select id="apiProvider" onchange="onProviderChange()" class="bg-slate-950 border border-slate-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500">
+              <option value="gemini">Google Gemini</option>
+              <option value="openrouter">OpenRouter</option>
+              <option value="openai">OpenAI</option>
+            </select>
+            <input id="apiKeyInput" type="password" placeholder="AIzaSy... or sk-..." class="bg-slate-950 border border-slate-700 rounded-lg px-3 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500 flex-1 min-w-[200px]">
+            <button onclick="saveApiKey()" class="px-3 py-1.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 text-xs font-bold transition-all">Save Key</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Main Workspace Workbench -->
+      <div class="glass-panel rounded-2xl p-4 sm:p-6 border border-slate-800 shadow-2xl reveal">
+        <div class="flex flex-col space-y-3 mb-6">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <label for="userPrompt" class="text-xs font-semibold text-slate-300">Prompt / Iterative Command</label>
+            <div class="flex items-center gap-2">
+              <button onclick="loadTemplatePrompt('signin')" class="text-xs text-slate-400 hover:text-emerald-400">Sign-in Form</button>
+              <span class="text-slate-700">•</span>
+              <button onclick="loadTemplatePrompt('recipe')" class="text-xs text-slate-400 hover:text-emerald-400">Recipe Card</button>
+              <span class="text-slate-700">•</span>
+              <button onclick="loadTemplatePrompt('pricing')" class="text-xs text-slate-400 hover:text-emerald-400">Pricing Card</button>
+            </div>
+          </div>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <input id="userPrompt" type="text" placeholder="e.g. 'Build a recipe card' or 'Make the primary button emerald green'" class="flex-1 bg-slate-950 border border-slate-700 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500">
+            <button onclick="runAIGeneration()" id="generateBtn" class="px-6 py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-bold text-sm shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2">
+              <span>Generate / Iterate</span>
+            </button>
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <!-- Left Column: Code Editor & History -->
+          <div class="lg:col-span-5 flex flex-col space-y-4">
+            <div class="flex items-center justify-between bg-slate-900/90 px-4 py-2 rounded-t-xl border border-slate-800 text-xs">
+              <span class="font-semibold text-slate-300">HTML Code Editor</span>
+              <div class="flex items-center space-x-2">
+                <button onclick="undoCode()" id="undoBtn" disabled class="px-2 py-0.5 rounded bg-slate-800 text-slate-500 text-xs disabled:opacity-50">Undo</button>
+                <button onclick="applyManualEdit()" class="px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30 font-medium">Render</button>
+              </div>
+            </div>
+
+            <textarea id="codeEditor" rows="14" aria-label="HTML Code Editor" oninput="highlightCurrentLine()" onclick="highlightCurrentLine()" onkeyup="highlightCurrentLine()" class="w-full bg-slate-950 text-emerald-300 p-4 rounded-b-xl border border-t-0 border-slate-800 font-mono text-xs focus:outline-none leading-relaxed resize-none"></textarea>
+
+            <div class="glass-panel p-3 rounded-xl border border-slate-800 flex items-center justify-between gap-2 text-xs">
+              <span id="activeLineInfo" class="text-slate-400 truncate">Click line to inspect</span>
+              <button onclick="explainActiveLine()" class="shrink-0 px-3 py-1 rounded bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 font-semibold">Explain Selected Line</button>
+            </div>
+
+            <!-- Line-Specific Inspector Output -->
+            <div id="lineExplanationBox" class="hidden glass-panel p-3.5 rounded-xl border border-cyan-500/30 bg-cyan-950/20 text-xs text-slate-200 space-y-1.5">
+              <div class="flex items-center justify-between">
+                <span id="lineExplanationTitle" class="font-bold text-cyan-400">Line 1 Breakdown</span>
+                <button onclick="document.getElementById('lineExplanationBox').classList.add('hidden')" class="text-slate-400 hover:text-white text-xs">✕</button>
+              </div>
+              <p id="lineExplanationText" class="leading-relaxed text-slate-300"></p>
+            </div>
+
+            <div class="glass-panel p-4 rounded-xl border border-slate-800 bg-slate-900/60">
+              <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
+                Plain-Language Code Breakdown
+              </h4>
+              <div id="plainExplanation" class="text-xs text-slate-300 space-y-2 leading-relaxed">
+                Click "Generate" or select a template to view breakdowns.
+              </div>
+            </div>
+          </div>
+
+          <!-- Right Column: Sandboxed Preview -->
+          <div class="lg:col-span-7 flex flex-col space-y-4">
+            <div class="flex flex-wrap items-center justify-between bg-slate-900/90 px-4 py-2 rounded-t-xl border border-slate-800 gap-2">
+              <span class="text-xs font-semibold text-slate-300">Sandboxed Preview</span>
+              <div class="flex items-center space-x-1 bg-slate-950 p-1 rounded-lg border border-slate-800 text-xs">
+                <button onclick="setViewport('desktop')" id="vp-desktop" class="px-2 py-0.5 rounded text-emerald-400 bg-emerald-500/20 font-medium">Desktop</button>
+                <button onclick="setViewport('tablet')" id="vp-tablet" class="px-2 py-0.5 rounded text-slate-400 hover:text-white">Tablet</button>
+                <button onclick="setViewport('mobile')" id="vp-mobile" class="px-2 py-0.5 rounded text-slate-400 hover:text-white">Mobile</button>
+              </div>
+            </div>
+
+            <div id="previewWrapper" class="w-full bg-slate-950 rounded-b-xl border border-t-0 border-slate-800 p-4 flex justify-center items-start min-h-[380px] overflow-x-auto">
+              <iframe id="sandboxIframe" title="Live Component Sandbox Preview" sandbox="allow-scripts allow-same-origin" class="w-full h-[360px] bg-slate-900 rounded border-0 transition-all"></iframe>
+            </div>
+
+            <!-- Export & Storage Actions -->
+            <div class="flex flex-wrap items-center justify-between gap-3 p-3 glass-panel rounded-xl border border-slate-800 text-xs">
+              <div class="flex items-center space-x-2">
+                <button onclick="saveProjectToStorage()" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium">Save Local</button>
+                <button onclick="downloadHTMLFile()" class="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium">Download HTML</button>
+              </div>
+              <button onclick="generateShareLink()" class="px-3 py-1.5 rounded bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 font-semibold">Copy Share Link</button>
+            </div>
+
+            <!-- Visual Diff Inspector Panel -->
+            <div id="diffPanel" class="hidden glass-panel p-4 rounded-xl border border-amber-500/30 bg-slate-900/80">
+              <div class="flex items-center justify-between mb-2">
+                <span class="text-xs font-bold text-amber-400 uppercase tracking-wider">Before-and-After Change Inspector</span>
+                <div class="space-x-2">
+                  <button onclick="acceptDiffChange()" class="px-2.5 py-1 rounded bg-emerald-500 text-slate-950 font-bold text-xs">Accept Change</button>
+                  <button onclick="rejectDiffChange()" class="px-2.5 py-1 rounded bg-rose-500/20 text-rose-300 text-xs">Reject</button>
+                </div>
+              </div>
+              <div id="diffOutput" class="p-3 bg-slate-950 rounded border border-slate-800 text-xs font-mono max-h-40 overflow-y-auto leading-relaxed"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Diagnostics Tools Section -->
+  <section id="tools" class="py-16 sm:py-20 border-b border-slate-800/60 bg-slate-950/40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-2xl mx-auto mb-12 reveal">
+        <span class="text-emerald-400 text-xs font-semibold uppercase tracking-wider">Automated Quality Gates</span>
+        <h2 class="text-2xl sm:text-3xl font-extrabold text-white mt-1 mb-3">Real-Time Accessibility & Error Diagnostics</h2>
+        <p class="text-slate-400 text-sm">Automated axe-core WCAG audits and sandbox runtime error capturing.</p>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-6 max-w-5xl mx-auto">
+        <div class="glass-panel p-6 rounded-2xl border border-slate-800 reveal">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-white">♿ Accessibility Audit</h3>
+            <button onclick="runAxeCoreAudit()" class="px-3 py-1.5 rounded bg-emerald-500/20 text-emerald-400 text-xs font-semibold hover:bg-emerald-500/30">Run Audit</button>
+          </div>
+          <div id="auditResults" class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs space-y-3 min-h-[160px] max-h-[280px] overflow-y-auto">
+            <p class="text-slate-400">Click "Run Audit" to test your current HTML preview for ARIA roles, semantic labels, and WCAG contrast.</p>
+          </div>
+        </div>
+
+        <div class="glass-panel p-6 rounded-2xl border border-slate-800 reveal">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="text-lg font-bold text-white">🐞 Console Debugger</h3>
+            <div class="flex items-center gap-2">
+              <button onclick="clearErrorConsole()" class="px-2.5 py-1.5 rounded bg-slate-800 text-slate-300 text-xs font-semibold hover:bg-slate-700">Clear</button>
+              <button onclick="simulateRuntimeError()" class="px-3 py-1.5 rounded bg-rose-500/20 text-rose-400 text-xs font-semibold hover:bg-rose-500/30">Simulate Error</button>
+            </div>
+          </div>
+          <div id="errorConsole" class="bg-slate-950 p-4 rounded-xl border border-slate-800 text-xs space-y-3 min-h-[160px] max-h-[280px] overflow-y-auto">
+            <p class="text-emerald-400 font-mono">✓ Console clear. No active runtime exceptions caught.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Learning Hub Section -->
+  <section id="dashboard" class="py-16 sm:py-20 border-b border-slate-800/60">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-2xl mx-auto mb-12 reveal">
+        <span class="text-cyan-400 text-xs font-semibold uppercase tracking-wider">Developer Mastery</span>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-1 mb-3">Interactive Learning Hub</h2>
+        <p class="text-slate-400 text-sm">
+          Track your hands-on comprehension progress and load interactive concept drills directly into the live workspace.
+        </p>
+      </div>
+
+      <!-- Live Telemetry Metrics -->
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-6 mb-10 reveal">
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+          <div>
+            <div class="text-xs text-slate-400 font-medium">Components Built</div>
+            <div id="statComponentsBuilt" class="text-2xl font-black text-white mt-1">1</div>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center font-bold">🧩</div>
+        </div>
+
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+          <div>
+            <div class="text-xs text-slate-400 font-medium">Lines Inspected</div>
+            <div id="statLinesInspected" class="text-2xl font-black text-cyan-400 mt-1">0</div>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-cyan-500/10 text-cyan-400 flex items-center justify-center font-bold">🔍</div>
+        </div>
+
+        <div class="glass-panel p-5 rounded-2xl border border-slate-800 flex items-center justify-between">
+          <div>
+            <div class="text-xs text-slate-400 font-medium">Last WCAG Score</div>
+            <div id="statWcagScore" class="text-2xl font-black text-emerald-400 mt-1">Ready</div>
+          </div>
+          <div class="w-10 h-10 rounded-xl bg-blue-500/10 text-blue-400 flex items-center justify-center font-bold">♿</div>
+        </div>
+      </div>
+
+      <!-- Interactive Concept Drills -->
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 reveal">
+        <div class="glass-panel p-6 rounded-2xl border border-slate-800 flex flex-col justify-between">
+          <div>
+            <span class="px-2.5 py-0.5 rounded bg-emerald-500/10 text-emerald-400 text-[11px] font-bold uppercase">Module 1 • Semantics</span>
+            <h3 class="text-base font-bold text-white mt-3 mb-2">Accessible Form Bindings</h3>
+            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+              Learn why pairing <code>&lt;label for="..."&gt;</code> with matching input IDs enables screen readers and increases click target area.
+            </p>
+          </div>
+          <a href="#try-demo" onclick="loadTemplatePrompt('signin')" class="inline-flex items-center justify-center w-full py-2 rounded-lg bg-slate-800 hover:bg-emerald-500/20 text-emerald-400 text-xs font-semibold transition-colors">
+            Load Form Drill in Workspace →
+          </a>
+        </div>
+
+        <div class="glass-panel p-6 rounded-2xl border border-slate-800 flex flex-col justify-between">
+          <div>
+            <span class="px-2.5 py-0.5 rounded bg-cyan-500/10 text-cyan-400 text-[11px] font-bold uppercase">Module 2 • Layout</span>
+            <h3 class="text-base font-bold text-white mt-3 mb-2">Responsive Card Flex & Constraints</h3>
+            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+              Inspect how <code>max-w-sm</code>, <code>flex</code>, and <code>justify-between</code> keep metadata badges aligned across mobile and desktop viewports.
+            </p>
+          </div>
+          <a href="#try-demo" onclick="loadTemplatePrompt('recipe')" class="inline-flex items-center justify-center w-full py-2 rounded-lg bg-slate-800 hover:bg-cyan-500/20 text-cyan-400 text-xs font-semibold transition-colors">
+            Load Card Drill in Workspace →
+          </a>
+        </div>
+
+        <div class="glass-panel p-6 rounded-2xl border border-slate-800 flex flex-col justify-between">
+          <div>
+            <span class="px-2.5 py-0.5 rounded bg-blue-500/10 text-blue-400 text-[11px] font-bold uppercase">Module 3 • Visual Hierarchy</span>
+            <h3 class="text-base font-bold text-white mt-3 mb-2">Positioning & High-Contrast CTAs</h3>
+            <p class="text-xs text-slate-400 leading-relaxed mb-4">
+              Explore <code>relative</code> and <code>absolute</code> badge overlays paired with WCAG-compliant dark text on emerald call-to-action buttons.
+            </p>
+          </div>
+          <a href="#try-demo" onclick="loadTemplatePrompt('pricing')" class="inline-flex items-center justify-center w-full py-2 rounded-lg bg-slate-800 hover:bg-blue-500/20 text-blue-400 text-xs font-semibold transition-colors">
+            Load Pricing Drill in Workspace →
+          </a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Pricing Section -->
+  <section id="pricing" class="py-16 sm:py-20 bg-slate-950/40">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      <div class="text-center max-w-2xl mx-auto mb-12 reveal">
+        <span class="text-emerald-400 text-xs font-semibold uppercase tracking-wider">Transparent Pricing</span>
+        <h2 class="text-2xl sm:text-4xl font-extrabold text-white mt-1 mb-3">Start Free with Your Own API Key</h2>
+        <p class="text-slate-400 text-sm">
+          Use ClearBuild locally for free forever, or upgrade for hosted cloud workspaces and team design-system rules.
+        </p>
+      </div>
+
+      <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-5xl mx-auto reveal">
+        <!-- Starter Tier -->
+        <div class="glass-panel p-6 rounded-2xl border border-slate-800 flex flex-col justify-between">
+          <div>
+            <div class="text-xs font-bold text-slate-400 uppercase tracking-wider">Starter (BYOK)</div>
+            <div class="text-3xl font-black text-white my-3">$0 <span class="text-xs font-normal text-slate-400">/ forever</span></div>
+            <p class="text-xs text-slate-400 mb-6">Full browser workspace powered by your own Gemini, OpenRouter, or OpenAI key.</p>
+            <ul class="space-y-2.5 text-xs text-slate-300 mb-6">
+              <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Unlimited BYOK & Simulation generations</li>
+              <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Before-and-After Diff Inspector</li>
+              <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Live axe-core WCAG accessibility audits</li>
+              <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Single-file HTML download & URL sharing</li>
+            </ul>
+          </div>
+          <a href="#try-demo" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs text-center transition-colors">
+            Launch Free Workspace
+          </a>
+        </div>
+
+        <!-- Pro Builder Tier -->
+        <div class="glass-panel p-6 rounded-2xl border border-emerald-500/50 glow-emerald relative flex flex-col justify-between">
+          <span class="absolute -top-3 right-5 px-3 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-black text-[10px] uppercase tracking-wider">Most Popular</span>
+          <div>
+            <div class="text-xs font-bold text-emerald-400 uppercase tracking-wider">Pro Builder</div>
+            <div class="text-3xl font-black text-white my-3">$19 <span class="text-xs font-normal text-slate-400">/ month</span></div>
+            <p class="text-xs text-slate-300 mb-6">Zero-setup managed AI tokens, cloud version history, and multi-component exports.</p>
+            <ul class="space-y-2.5 text-xs text-slate-200 mb-6">
+              <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> 1,500 managed fast AI iterations / mo</li>
+              <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Unlimited cloud project snapshots</li>
+              <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> Auto-fix accessibility patch generator</li>
+              <li class="flex items-center gap-2"><span class="text-emerald-400">✓</span> React / Vue / Tailwind export presets</li>
+            </ul>
+          </div>
+          <button onclick="showToast('Pro Builder trial activated in local preview mode!', 'success')" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-cyan-500 hover:from-emerald-400 hover:to-cyan-400 text-slate-950 font-bold text-xs text-center shadow-lg shadow-emerald-500/20 transition-all">
+            Start 14-Day Free Trial
+          </button>
+        </div>
+
+        <!-- Team Tier -->
+        <div class="glass-panel p-6 rounded-2xl border border-slate-800 flex flex-col justify-between">
+          <div>
+            <div class="text-xs font-bold text-cyan-400 uppercase tracking-wider">Team Workspace</div>
+            <div class="text-3xl font-black text-white my-3">$49 <span class="text-xs font-normal text-slate-400">/ seat / mo</span></div>
+            <p class="text-xs text-slate-400 mb-6">Enforce brand tokens, shared component libraries, and WCAG AA compliance gates.</p>
+            <ul class="space-y-2.5 text-xs text-slate-300 mb-6">
+              <li class="flex items-center gap-2"><span class="text-cyan-400">✓</span> Custom Tailwind theme & token guardrails</li>
+              <li class="flex items-center gap-2"><span class="text-cyan-400">✓</span> Shared team template & pattern library</li>
+              <li class="flex items-center gap-2"><span class="text-cyan-400">✓</span> Mandatory WCAG AA sign-off workflows</li>
+              <li class="flex items-center gap-2"><span class="text-cyan-400">✓</span> SSO & dedicated onboarding support</li>
+            </ul>
+          </div>
+          <button onclick="showToast('Team demo request logged! Our team will reach out shortly.', 'info')" class="w-full py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-white font-bold text-xs text-center transition-colors">
+            Request Team Demo
+          </button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Footer -->
+  <footer class="border-t border-slate-800/80 py-10 bg-slate-950">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+      <div class="flex items-center space-x-2">
+        <div class="w-6 h-6 rounded-lg bg-gradient-to-br from-emerald-400 to-cyan-500 flex items-center justify-center font-bold text-slate-950 text-xs">CB</div>
+        <span class="font-bold text-white">ClearBuild</span>
+        <span>— Human-First AI Interface Workspace</span>
+      </div>
+      <div class="flex items-center space-x-6">
+        <a href="#problem" class="hover:text-emerald-400 transition-colors">The Problem</a>
+        <a href="#why-clearbuild" class="hover:text-emerald-400 transition-colors">Why ClearBuild</a>
+        <a href="#try-demo" class="hover:text-emerald-400 transition-colors">Workspace</a>
+        <a href="#tools" class="hover:text-emerald-400 transition-colors">Audit & Debug</a>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Application Logic -->
+  <script>
+    const templates = {
+      signin: {
+        prompt: "Build a clean sign-in card with email, password fields, and submit button",
+        code: `<div class="min-h-screen bg-slate-900 flex items-center justify-center p-4 font-sans">\n  <div class="w-full max-w-md bg-slate-800/90 rounded-2xl p-6 border border-slate-700/60 shadow-xl">\n    <h2 class="text-xl font-bold text-white mb-1">Welcome Back</h2>\n    <p class="text-xs text-slate-400 mb-6">Enter your credentials to access your account.</p>\n    <form class="space-y-4" onsubmit="event.preventDefault();">\n      <div>\n        <label for="email" class="block text-xs font-semibold text-slate-300 mb-1">Email Address</label>\n        <input type="email" id="email" required placeholder="you@example.com" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">\n      </div>\n      <div>\n        <label for="password" class="block text-xs font-semibold text-slate-300 mb-1">Password</label>\n        <input type="password" id="password" required placeholder="••••••••" class="w-full bg-slate-950 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500">\n      </div>\n      <button type="submit" class="w-full py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs transition-colors">\n        Sign In\n      </button>\n    </form>\n  </div>\n</div>`,
+        explanation: `• <strong>Form Design:</strong> Structured login box with explicit semantic <code>&lt;label&gt;</code> elements and emerald focus accents.`
+      },
+      recipe: {
+        prompt: "Build a responsive recipe card with preparation time and ingredient tags",
+        code: `<div class="p-6 bg-slate-900 flex justify-center font-sans">\n  <div class="max-w-sm bg-slate-800 rounded-2xl border border-slate-700 overflow-hidden shadow-xl p-5">\n    <div class="flex items-center justify-between mb-2">\n      <span class="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400 text-[10px] font-bold uppercase">Quick & Easy</span>\n      <span class="text-xs text-slate-400 font-mono">⏱️ 20 mins</span>\n    </div>\n    <h3 class="text-lg font-bold text-white mb-2">Avocado Toast Supreme</h3>\n    <p class="text-xs text-slate-300 mb-4 leading-relaxed">Sourdough topped with smashed avocado, poached egg, and red pepper flakes.</p>\n  </div>\n</div>`,
+        explanation: `• <strong>Recipe Card:</strong> Uses responsive container sizing with metadata badges.`
+      },
+      pricing: {
+        prompt: "Build a single featured pricing card component",
+        code: `<div class="p-6 bg-slate-900 flex justify-center font-sans">\n  <div class="w-full max-w-sm bg-slate-800 rounded-2xl p-6 border border-emerald-500/50 shadow-2xl relative">\n    <span class="absolute -top-3 right-4 px-2.5 py-0.5 rounded-full bg-emerald-500 text-slate-950 font-black text-[10px] uppercase">Best Value</span>\n    <h3 class="text-sm font-bold text-slate-300">Pro Developer</h3>\n    <div class="text-3xl font-black text-white my-2">$29 <span class="text-xs font-normal text-slate-400">/ mo</span></div>\n    <button class="w-full py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs">Start Trial</button>\n  </div>\n</div>`,
+        explanation: `• <strong>Pricing Card:</strong> Call-to-action layout with high-visibility badge.`
+      }
+    };
+
+    let currentCodeHistory = [];
+    let historyIndex = -1;
+    let pendingCode = "";
+    let apiKey = localStorage.getItem("cb_api_key") || "";
+    let apiProvider = localStorage.getItem("cb_api_provider") || "gemini";
+    let selectedLineNumber = 1;
+    let linesInspectedCount = 0;
+
+    document.addEventListener("DOMContentLoaded", () => {
+      initScrollProgress();
+      initScrollReveal();
+      initNavSpy();
+
+      document.getElementById("apiProvider").value = apiProvider;
+      if (apiKey) {
+        document.getElementById("apiKeyInput").value = apiKey;
+        updateApiBadge(true);
+      }
+
+      // Check for shared project in URL hash or saved local project
+      const hash = window.location.hash;
+      if (hash && hash.startsWith("#project=")) {
+        try {
+          const encoded = hash.replace("#project=", "");
+          const decoded = decodeURIComponent(escape(atob(encoded)));
+          updateCodeState(decoded);
+          document.getElementById("plainExplanation").innerHTML = `• <strong>Shared Project Loaded:</strong> Restored component code from share link.`;
+          showToast("Loaded shared component from URL!", "success");
+          return;
+        } catch (e) {
+          console.warn("Could not decode shared URL payload:", e);
+        }
+      }
+
+      const savedLocal = localStorage.getItem("cb_saved_project");
+      if (savedLocal) {
+        updateCodeState(savedLocal);
+        document.getElementById("plainExplanation").innerHTML = `• <strong>Local Project Restored:</strong> Loaded your previously saved component.`;
+      } else {
+        loadTemplatePrompt('signin');
+      }
+    });
+
+    // Listen for runtime errors posted from inside the sandboxed iframe
+    window.addEventListener("message", (event) => {
+      if (event.data && event.data.type === "CB_SANDBOX_ERROR") {
+        appendConsoleError(event.data.message, event.data.line || "Unknown", event.data.hint);
+      }
+    });
+
+    function showToast(message, type = "info") {
+      const container = document.getElementById("toastContainer");
+      const toast = document.createElement("div");
+      const borderClass = type === "success" ? "border-emerald-500/50 text-emerald-300" : type === "error" ? "border-rose-500/50 text-rose-300" : "border-cyan-500/50 text-cyan-300";
+      toast.className = `pointer-events-auto glass-panel px-4 py-2.5 rounded-xl border ${borderClass} text-xs font-medium shadow-xl transition-all duration-300 transform translate-y-2 opacity-0`;
+      toast.textContent = message;
+      container.appendChild(toast);
+
+      requestAnimationFrame(() => {
+        toast.classList.remove("translate-y-2", "opacity-0");
+      });
+
+      setTimeout(() => {
+        toast.classList.add("opacity-0", "translate-y-2");
+        setTimeout(() => toast.remove(), 300);
+      }, 3200);
+    }
+
+    function toggleMobileMenu() {
+      document.getElementById("mobileMenu").classList.toggle("hidden");
+    }
+
+    function initScrollProgress() {
+      window.addEventListener("scroll", () => {
+        const winScroll = document.documentElement.scrollTop || document.body.scrollTop;
+        const height = document.documentElement.scrollHeight - document.documentElement.clientHeight;
+        if (height > 0) {
+          document.getElementById("scroll-progress").style.width = ((winScroll / height) * 100) + "%";
+        }
+      });
+    }
+
+    function initScrollReveal() {
+      const observer = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) entry.target.classList.add("active");
         });
-    </script>
+      }, { threshold: 0.1 });
+      document.querySelectorAll(".reveal").forEach(el => observer.observe(el));
+    }
+
+    function initNavSpy() {
+      const sections = ["problem", "why-clearbuild", "how-it-works", "try-demo", "tools", "dashboard", "pricing"];
+      window.addEventListener("scroll", () => {
+        let current = "";
+        sections.forEach(id => {
+          const el = document.getElementById(id);
+          if (el && window.scrollY >= el.offsetTop - 140) {
+            current = id;
+          }
+        });
+        document.querySelectorAll(".nav-link").forEach(link => {
+          link.classList.remove("text-emerald-400", "font-bold");
+          if (current && link.getAttribute("href") === `#${current}`) {
+            link.classList.add("text-emerald-400", "font-bold");
+          }
+        });
+      });
+    }
+
+    function onProviderChange() {
+      apiProvider = document.getElementById("apiProvider").value;
+      localStorage.setItem("cb_api_provider", apiProvider);
+    }
+
+    function saveApiKey() {
+      const input = document.getElementById("apiKeyInput").value.trim();
+      apiKey = input;
+      apiProvider = document.getElementById("apiProvider").value;
+      if (input) {
+        localStorage.setItem("cb_api_key", input);
+        localStorage.setItem("cb_api_provider", apiProvider);
+        updateApiBadge(true);
+        showToast(`Saved ${apiProvider.toUpperCase()} API key locally.`, "success");
+      } else {
+        localStorage.removeItem("cb_api_key");
+        updateApiBadge(false);
+        showToast("API key cleared. Switched to Simulated Backend.", "info");
+      }
+    }
+
+    function updateApiBadge(isLive) {
+      const badge = document.getElementById("apiStatusBadge");
+      if (isLive) {
+        badge.textContent = `Live API Active (${apiProvider.toUpperCase()})`;
+        badge.className = "px-2 py-0.5 rounded bg-cyan-500/20 text-cyan-400 text-xs font-semibold";
+      } else {
+        badge.textContent = "Simulated Backend Active";
+        badge.className = "px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 text-xs";
+      }
+    }
+
+    function loadTemplatePrompt(key) {
+      const t = templates[key];
+      if (!t) return;
+      document.getElementById("userPrompt").value = t.prompt;
+      updateCodeState(t.code);
+      document.getElementById("plainExplanation").innerHTML = t.explanation;
+      document.getElementById("lineExplanationBox").classList.add("hidden");
+    }
+
+    function updateCodeState(newCode) {
+      if (currentCodeHistory[historyIndex] === newCode) return;
+      currentCodeHistory = currentCodeHistory.slice(0, historyIndex + 1);
+      currentCodeHistory.push(newCode);
+      historyIndex++;
+      document.getElementById("codeEditor").value = newCode;
+      renderSandboxPreview(newCode);
+      updateUndoButtonState();
+      document.getElementById("statComponentsBuilt").textContent = currentCodeHistory.length;
+    }
+
+    function undoCode() {
+      if (historyIndex > 0) {
+        historyIndex--;
+        const prevCode = currentCodeHistory[historyIndex];
+        document.getElementById("codeEditor").value = prevCode;
+        renderSandboxPreview(prevCode);
+        updateUndoButtonState();
+        showToast("Reverted to previous version.", "info");
+      }
+    }
+
+    function updateUndoButtonState() {
+      const btn = document.getElementById("undoBtn");
+      btn.disabled = historyIndex <= 0;
+      btn.className = historyIndex > 0 
+        ? "px-2 py-0.5 rounded bg-slate-800 text-slate-200 hover:bg-slate-700 text-xs cursor-pointer"
+        : "px-2 py-0.5 rounded bg-slate-800 text-slate-500 text-xs disabled:opacity-50 cursor-not-allowed";
+    }
+
+    function applyManualEdit() {
+      updateCodeState(document.getElementById("codeEditor").value);
+      showToast("Rendered manual code edits.", "success");
+    }
+
+    function renderSandboxPreview(code) {
+      const iframe = document.getElementById("sandboxIframe");
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+      const errorBridgeScript = `
+        <script>
+          window.onerror = function(msg, url, lineNo) {
+            window.parent.postMessage({
+              type: 'CB_SANDBOX_ERROR',
+              message: msg,
+              line: lineNo,
+              hint: 'Check variable declarations, DOM selectors, or event handlers in your snippet.'
+            }, '*');
+            return false;
+          };
+        <\/script>
+      `;
+      const fullHTML = `<!DOCTYPE html><html lang="en"><head><meta charset="UTF-8"><title>ClearBuild Preview</title><script src="https://cdn.tailwindcss.com"><\/script>${errorBridgeScript}<style>body { margin: 0; padding: 0; background-color: #0f172a; color: #f8fafc; }</style></head><body>${code}</body></html>`;
+      doc.open();
+      doc.write(fullHTML);
+      doc.close();
+    }
+
+    function setViewport(mode) {
+      const iframe = document.getElementById("sandboxIframe");
+      iframe.style.width = mode === 'desktop' ? '100%' : mode === 'tablet' ? '768px' : '375px';
+
+      ['desktop', 'tablet', 'mobile'].forEach(vp => {
+        const btn = document.getElementById(`vp-${vp}`);
+        if (vp === mode) {
+          btn.className = "px-2 py-0.5 rounded text-emerald-400 bg-emerald-500/20 font-medium";
+        } else {
+          btn.className = "px-2 py-0.5 rounded text-slate-400 hover:text-white";
+        }
+      });
+    }
+
+    async function runAIGeneration() {
+      const promptInput = document.getElementById("userPrompt").value.trim();
+      if (!promptInput) {
+        showToast("Enter a prompt or select a template first.", "error");
+        return;
+      }
+      const genBtn = document.getElementById("generateBtn");
+      genBtn.innerHTML = `<span>Generating...</span>`;
+      genBtn.disabled = true;
+
+      const currentCode = document.getElementById("codeEditor").value;
+
+      if (apiKey) {
+        try {
+          let generated = "";
+          if (apiProvider === "gemini" || apiKey.startsWith("AIzaSy")) {
+            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [{
+                  parts: [{ text: `You are ClearBuild AI. Return ONLY raw HTML with Tailwind CSS. Do not include markdown headers or triple backticks.\n\nExisting HTML:\n${currentCode}\n\nTask: ${promptInput}` }]
+                }]
+              })
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error.message);
+            generated = data.candidates[0].content.parts[0].text;
+          } else {
+            const endpoint = apiProvider === "openrouter" 
+              ? "https://openrouter.ai/api/v1/chat/completions" 
+              : "https://api.openai.com/v1/chat/completions";
+            const model = apiProvider === "openrouter" ? "google/gemini-2.5-flash" : "gpt-4o-mini";
+            
+            const res = await fetch(endpoint, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                "Authorization": `Bearer ${apiKey}`
+              },
+              body: JSON.stringify({
+                model: model,
+                messages: [
+                  { role: "system", content: "Return ONLY raw HTML with Tailwind CSS snippets. No markdown fences." },
+                  { role: "user", content: `Existing HTML:\n${currentCode}\n\nTask: ${promptInput}` }
+                ]
+              })
+            });
+            const data = await res.json();
+            if (data.error) throw new Error(data.error.message || JSON.stringify(data.error));
+            generated = data.choices[0].message.content;
+          }
+
+          generated = generated.replace(/```html|```/g, "").trim();
+          triggerDiffInspection(currentCode, generated);
+          document.getElementById("plainExplanation").innerHTML = `• <strong>AI Update:</strong> Generated diff for "${escapeHtml(promptInput)}". Review and accept changes in the inspector.`;
+        } catch (err) {
+          showToast("API Error: " + err.message, "error");
+        }
+      } else {
+        // Smart Simulated Generation
+        await new Promise(resolve => setTimeout(resolve, 450));
+        let updatedCode = currentCode;
+        const lowerPrompt = promptInput.toLowerCase();
+
+        if (lowerPrompt.includes("cyan") || lowerPrompt.includes("blue")) {
+          updatedCode = currentCode.replace(/emerald-500/g, "cyan-500").replace(/emerald-400/g, "cyan-400");
+        } else if (lowerPrompt.includes("emerald") || lowerPrompt.includes("green")) {
+          updatedCode = currentCode.replace(/cyan-500/g, "emerald-500").replace(/cyan-400/g, "emerald-400");
+        } else if (lowerPrompt.includes("recipe")) {
+          updatedCode = templates.recipe.code;
+        } else if (lowerPrompt.includes("pricing")) {
+          updatedCode = templates.pricing.code;
+        } else {
+          updatedCode = currentCode
+            .replace(/Welcome Back/g, "Account Login")
+            .replace(/Sign In/g, "Continue to Dashboard");
+          if (updatedCode === currentCode) {
+            updatedCode = currentCode.replace(/<\/div>\s*$/, `\n  <!-- Updated per: ${promptInput.replace(/-->/g, "")} -->\n</div>`);
+          }
+        }
+
+        triggerDiffInspection(currentCode, updatedCode);
+        document.getElementById("plainExplanation").innerHTML = `• <strong>Simulated Update:</strong> Prepared diff for "${escapeHtml(promptInput)}". Click <strong>Accept Change</strong> in the inspector to apply.`;
+      }
+
+      genBtn.innerHTML = `<span>Generate / Iterate</span>`;
+      genBtn.disabled = false;
+    }
+
+    function escapeHtml(str) {
+      return str.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    }
+
+    function triggerDiffInspection(oldCode, newCode) {
+      pendingCode = newCode;
+      const diffOutput = document.getElementById("diffOutput");
+      if (typeof Diff !== 'undefined') {
+        const changes = Diff.diffLines(oldCode, newCode);
+        let html = '';
+        changes.forEach(part => {
+          const colorClass = part.added ? 'diff-add' : part.removed ? 'diff-rem' : 'text-slate-500';
+          const prefix = part.added ? '+ ' : part.removed ? '- ' : '  ';
+          const escaped = escapeHtml(part.value);
+          html += `<div class="${colorClass} whitespace-pre-wrap">${prefix}${escaped}</div>`;
+        });
+        diffOutput.innerHTML = html;
+      }
+      document.getElementById("diffPanel").classList.remove("hidden");
+    }
+
+    function acceptDiffChange() {
+      if (pendingCode) {
+        updateCodeState(pendingCode);
+        pendingCode = "";
+        showToast("Diff accepted and applied to workspace.", "success");
+      }
+      document.getElementById("diffPanel").classList.add("hidden");
+    }
+
+    function rejectDiffChange() {
+      pendingCode = "";
+      document.getElementById("diffPanel").classList.add("hidden");
+      showToast("Changes discarded.", "info");
+    }
+
+    function highlightCurrentLine() {
+      const textarea = document.getElementById("codeEditor");
+      const lines = textarea.value.substr(0, textarea.selectionStart).split("\n");
+      selectedLineNumber = lines.length;
+      const currentText = (lines[lines.length - 1] || "").trim();
+      document.getElementById("activeLineInfo").textContent = `Line ${selectedLineNumber}: ${currentText.substring(0, 28) || '(empty line)'}${currentText.length > 28 ? '...' : ''}`;
+    }
+
+    function explainActiveLine() {
+      const textarea = document.getElementById("codeEditor");
+      const lines = textarea.value.split("\n");
+      const lineText = (lines[selectedLineNumber - 1] || "").trim();
+
+      const box = document.getElementById("lineExplanationBox");
+      const title = document.getElementById("lineExplanationTitle");
+      const text = document.getElementById("lineExplanationText");
+
+      title.textContent = `Line ${selectedLineNumber} Explanation`;
+
+      if (!lineText) {
+        text.innerHTML = "This is an empty whitespace line used to visually separate blocks of HTML for readability.";
+      } else {
+        const insights = [];
+        const tagMatch = lineText.match(/^<\/?([a-zA-Z0-9-]+)/);
+
+        if (lineText.startsWith("</")) {
+          insights.push(`Closes the <code>&lt;${tagMatch ? tagMatch[1] : 'element'}&gt;</code> container block.`);
+        } else if (tagMatch) {
+          const tag = tagMatch[1].toLowerCase();
+          const tagDescriptions = {
+            div: "A structural <code>&lt;div&gt;</code> container used to group and style layout elements.",
+            form: "A semantic <code>&lt;form&gt;</code> wrapper that groups interactive inputs and handles submission.",
+            label: "An accessible <code>&lt;label&gt;</code> element that binds descriptive text to a form control.",
+            input: "An interactive <code>&lt;input&gt;</code> field where users enter data.",
+            button: "A clickable <code>&lt;button&gt;</code> trigger for user actions or form submission.",
+            h1: "A primary <code>&lt;h1&gt;</code> heading establishing page hierarchy.",
+            h2: "A section <code>&lt;h2&gt;</code> heading establishing clear document hierarchy.",
+            h3: "A card or subsection <code>&lt;h3&gt;</code> heading.",
+            p: "A paragraph <code>&lt;p&gt;</code> element for body copy.",
+            span: "An inline <code>&lt;span&gt;</code> wrapper used for badges, icons, or highlighted text."
+          };
+          insights.push(tagDescriptions[tag] || `Opens a <code>&lt;${tag}&gt;</code> HTML element.`);
+        }
+
+        if (lineText.includes("flex")) insights.push("Uses CSS Flexbox (<code>flex</code>) to align child elements along a row or column.");
+        if (lineText.includes("grid")) insights.push("Uses CSS Grid (<code>grid</code>) for structured two-dimensional layout alignment.");
+        if (lineText.includes("bg-")) insights.push("Applies Tailwind background color utilities for visual surface contrast.");
+        if (lineText.includes("rounded")) insights.push("Rounds the element corners using Tailwind border-radius utilities.");
+        if (lineText.includes("focus:")) insights.push("Defines keyboard focus styling (<code>focus:...</code>) so keyboard users can clearly see active controls.");
+        if (lineText.includes("for=")) insights.push("Links this label directly to the matching input <code>id</code> for screen-reader accessibility.");
+        if (lineText.includes("required")) insights.push("Enforces native browser form validation before submission.");
+
+        if (insights.length === 0) {
+          insights.push("Contains text content or attributes rendered inside the parent HTML element.");
+        }
+
+        text.innerHTML = insights.join(" ");
+      }
+
+      box.classList.remove("hidden");
+      linesInspectedCount++;
+      document.getElementById("statLinesInspected").textContent = linesInspectedCount;
+    }
+
+    function saveProjectToStorage() {
+      const code = document.getElementById("codeEditor").value;
+      localStorage.setItem("cb_saved_project", code);
+      showToast("Project saved to browser storage!", "success");
+    }
+
+    function downloadHTMLFile() {
+      const code = document.getElementById("codeEditor").value;
+      const fullHTML = `<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>ClearBuild Export</title>\n  <script src="https://cdn.tailwindcss.com"><\/script>\n</head>\n<body class="bg-slate-900 text-slate-100 antialiased">\n${code}\n</body>\n</html>`;
+      const blob = new Blob([fullHTML], { type: "text/html" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "clearbuild-component.html";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      showToast("Downloaded clearbuild-component.html", "success");
+    }
+
+    function generateShareLink() {
+      const code = document.getElementById("codeEditor").value;
+      const encoded = btoa(unescape(encodeURIComponent(code)));
+      const shareUrl = `${window.location.origin}${window.location.pathname}#project=${encoded}`;
+      navigator.clipboard.writeText(shareUrl).then(() => {
+        showToast("Stateful share link copied to clipboard!", "success");
+      }).catch(() => {
+        showToast("Share URL updated in address bar.", "info");
+        window.location.hash = `project=${encoded}`;
+      });
+    }
+
+    async function runAxeCoreAudit() {
+      const resultsBox = document.getElementById("auditResults");
+      const iframe = document.getElementById("sandboxIframe");
+      const doc = iframe.contentDocument || iframe.contentWindow.document;
+
+      resultsBox.innerHTML = `<p class="text-cyan-400 font-mono">Running axe-core WCAG 2.1 audit on live sandbox DOM...</p>`;
+
+      try {
+        if (typeof axe === "undefined") {
+          throw new Error("axe-core library not loaded.");
+        }
+        const results = await axe.run(doc.body);
+        const violations = results.violations || [];
+        const passes = results.passes || [];
+
+        const totalChecks = violations.length + passes.length;
+        const score = totalChecks > 0 ? Math.round((passes.length / totalChecks) * 100) : 100;
+        document.getElementById("statWcagScore").textContent = `${score}%`;
+
+        if (violations.length === 0) {
+          resultsBox.innerHTML = `
+            <div class="p-3 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
+              <div class="font-bold mb-1">✓ 0 Accessibility Violations Found (Score: ${score}%)</div>
+              <p class="text-slate-300">Passed ${passes.length} automated WCAG rules including form labels, semantic structure, and color contrast.</p>
+            </div>
+          `;
+        } else {
+          let html = `<div class="font-bold text-amber-400 mb-2">⚠️ Found ${violations.length} WCAG Issue(s) (Score: ${score}%)</div>`;
+          violations.forEach(v => {
+            html += `
+              <div class="p-2.5 rounded-lg bg-rose-500/10 border border-rose-500/30 text-rose-200 mb-2">
+                <div class="font-bold">${escapeHtml(v.help)} <span class="uppercase text-[10px] px-1.5 py-0.5 rounded bg-rose-500/20 ml-1">${v.impact}</span></div>
+                <p class="text-slate-300 mt-1">${escapeHtml(v.description)}</p>
+              </div>
+            `;
+          });
+          resultsBox.innerHTML = html;
+        }
+      } catch (err) {
+        resultsBox.innerHTML = `<p class="text-rose-400">Audit error: ${escapeHtml(err.message)}</p>`;
+      }
+    }
+
+    function simulateRuntimeError() {
+      appendConsoleError(
+        "Uncaught TypeError: Cannot read properties of null (reading 'addEventListener')",
+        "Line 14",
+        "Ensure the target element ID exists in your HTML before attaching a DOM event listener."
+      );
+      showToast("Captured simulated runtime exception in Console Debugger.", "error");
+    }
+
+    function appendConsoleError(message, line, hint) {
+      const consoleBox = document.getElementById("errorConsole");
+      if (consoleBox.textContent.includes("Console clear.")) {
+        consoleBox.innerHTML = "";
+      }
+      const entry = document.createElement("div");
+      entry.className = "p-3 rounded-lg bg-rose-500/10 border border-rose-500/30 space-y-1";
+      entry.innerHTML = `
+        <div class="flex items-center justify-between text-rose-400 font-mono font-bold">
+          <span>✖ Runtime Exception</span>
+          <span>${escapeHtml(String(line))}</span>
+        </div>
+        <div class="text-rose-200 font-mono">${escapeHtml(String(message))}</div>
+        <div class="text-slate-300 pt-1 border-t border-rose-500/20"><strong>ClearBuild Fix Hint:</strong> ${escapeHtml(String(hint))}</div>
+      `;
+      consoleBox.prepend(entry);
+    }
+
+    function clearErrorConsole() {
+      document.getElementById("errorConsole").innerHTML = `<p class="text-emerald-400 font-mono">✓ Console clear. No active runtime exceptions caught.</p>`;
+    }
+  </script>
 </body>
 </html>
