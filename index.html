@@ -12,16 +12,17 @@
         textarea { height: 100px; margin-bottom: 15px; }
         button { padding: 12px 24px; cursor: pointer; background-color: #0b57d0; color: white; border: none; border-radius: 20px; font-weight: bold; width: 100%; font-size: 16px; }
         button:hover { background-color: #0842a0; }
+        button:disabled { background-color: #93b5e8; cursor: not-allowed; }
         #output { margin-top: 20px; padding: 15px; background: #fff; border: 1px solid #eee; border-radius: 8px; white-space: pre-wrap; box-shadow: 0 2px 4px rgba(0,0,0,0.05); min-height: 40px; }
     </style>
 </head>
 <body>
 
     <h2>ClearBuild AI Code Generator</h2>
-    <p>Talk directly to Gemini 3.8 Flash cleanly via verified secure routing headers.</p>
+    <p>Talk directly to Gemini 3.5 Flash via the Gemini REST API.</p>
 
     <label for="apiKeyInput">1. Enter Gemini API Key:</label>
-    <input type="password" id="apiKeyInput" placeholder="Paste your AIzaSy... key here safely">
+    <input type="password" id="apiKeyInput" placeholder="Paste your AIzaSy... key here">
 
     <label for="userInput">2. Enter your Prompt:</label>
     <textarea id="userInput" placeholder="e.g., Build a login page with blue modern buttons..."></textarea>
@@ -33,24 +34,25 @@
 
     <script>
         document.getElementById('submitBtn').addEventListener('click', async function() {
+            const submitBtn = this;
             const userKey = document.getElementById('apiKeyInput').value.trim();
-            const prompt = document.getElementById('userInput').value;
+            const prompt = document.getElementById('userInput').value.trim();
             const outputDiv = document.getElementById('output');
             
             if (!userKey) return alert('Please enter your Gemini API Key first!');
             if (!prompt) return alert('Please enter a prompt message!');
             
-            outputDiv.innerText = "Connecting securely to Google AI endpoints...";
+            submitBtn.disabled = true;
+            outputDiv.innerText = "Generating response...";
 
             try {
-                // Key is removed from URL to bypass browser parameter filters
-                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent`;
+                // Updated to the valid gemini-3.5-flash endpoint
+                const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent`;
                 
                 const response = await fetch(url, {
                     method: 'POST',
                     headers: { 
                         'Content-Type': 'application/json',
-                        // Secure authorization header required for cross-origin browser validation
                         'x-goog-api-key': userKey 
                     },
                     body: JSON.stringify({
@@ -64,17 +66,19 @@
                 }
 
                 const data = await response.json();
+                const reply = data.candidates?.[0]?.content?.parts?.[0]?.text;
 
-                if (data.candidates && data.candidates[0] && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts[0]) {
-                    outputDiv.innerText = data.candidates[0].content.parts[0].text;
+                if (reply) {
+                    outputDiv.innerText = reply;
                 } else {
-                    outputDiv.innerText = "Received layout data, but it was empty or formatted unexpectedly.";
+                    outputDiv.innerText = "Received a response, but no text was returned (it may have been blocked by safety filters).";
                 }
 
             } catch (error) {
-                alert("Connection Blocked: " + error.message);
-                outputDiv.innerText = "Connection Failed: " + error.message;
+                outputDiv.innerText = "Error: " + error.message;
                 console.error(error);
+            } finally {
+                submitBtn.disabled = false;
             }
         });
     </script>
